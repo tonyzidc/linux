@@ -4,7 +4,9 @@ Repo gom script tien ich cho Debian: khoi tao server (`auto-init-server.sh`) va 
 
 ---
 
-## auto-init-server.sh (Debian 11 / 12)
+###
+
+## 1. auto-init-server.sh (Debian 11 / 12)
 
 Script **root**, chay **mot lan** tren may moi: nang cap OS day du, swap bang RAM, Docker day du, fail2ban, roi **reboot** (SSH se ngat ket noi).
 
@@ -37,7 +39,9 @@ Chi chay tren **Debian** voi **VERSION_ID** 11 hoac 12; cac OS khac script se th
 
 ---
 
-## auto-create-swap.sh
+###
+
+## 2. auto-create-swap.sh
 
 Script tao va cau hinh swapfile tu dong theo dung luong RAM, kem tuning `vm.swappiness` va `vm.vfs_cache_pressure`.
 
