@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# auto-init-server.sh — Debian 11/12: full upgrade, swap = RAM, Docker, fail2ban, reboot.
+# auto-init-server.sh — Debian 11/12: full upgrade, swap = RAM, Docker, fail2ban, benchmark + media check.
 # Usage: sudo ./auto-init-server.sh
 
 set -euo pipefail
@@ -125,7 +125,27 @@ EOF
 systemctl enable fail2ban
 systemctl restart fail2ban
 
-# --- b5: khoi dong lai may ---
-log "==> [b5] Khoi dong lai server sau 5 giay (Ctrl+C de huy neu can)..."
-sleep 5
-systemctl reboot
+# --- b5: benchmark VPS hieu nang/toc do ---
+log "==> [b5] Chay benchmark VPS (YABS)..."
+if command -v curl >/dev/null 2>&1; then
+  if ! bash <(curl -fsSL https://yabs.sh) -f; then
+    log "Canh bao: YABS chay that bai, bo qua de tiep tuc."
+  fi
+else
+  log "Canh bao: thieu curl, bo qua benchmark YABS."
+fi
+
+# --- b6: kiem tra IP stream/media unlock ---
+log "==> [b6] Kiem tra IP stream..."
+if command -v curl >/dev/null 2>&1; then
+  if ! bash <(curl -L -s media.ispvps.com); then
+    log "Canh bao: media.ispvps.com that bai, thu RegionRestrictionCheck..."
+    if ! bash <(curl -fsSL https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/check.sh); then
+      log "Canh bao: khong the chay kiem tra stream IP."
+    fi
+  fi
+else
+  log "Canh bao: thieu curl, bo qua kiem tra stream IP."
+fi
+
+log "==> Hoan tat. Script KHONG tu reboot server."

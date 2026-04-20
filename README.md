@@ -8,7 +8,7 @@ Repo gom script tien ich cho Debian: khoi tao server (`auto-init-server.sh`) va 
 
 ## 1. auto-init-server.sh (Debian 11 / 12)
 
-Script **root**, chay **mot lan** tren may moi: nang cap OS day du, swap bang RAM, Docker day du, fail2ban, roi **reboot** (SSH se ngat ket noi).
+Script **root**, chay **mot lan** tren may moi: nang cap OS day du, swap bang RAM, Docker day du, fail2ban, benchmark VPS, kiem tra stream IP.
 
 ### Chay nhanh tu GitHub (project public)
 
@@ -29,13 +29,15 @@ sudo ./auto-init-server.sh
 2. **Swap = RAM**: doc `MemTotal` tu `/proc/meminfo`, tao `/swapfile` dung bang RAM (`fallocate`, fallback `dd`), `mkswap`, `swapon`, them `/etc/fstab`; neu da co `/swapfile` thi `swapoff`, xoa dong fstab cu, tao lai. Ghi `/etc/sysctl.d/99-swap-tuning.conf` (`vm.swappiness=10`, `vm.vfs_cache_pressure=50`).
 3. **Docker**: them repo Docker chinh thuc, cai `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-buildx-plugin`, `docker-compose-plugin`, `systemctl enable` + `restart docker`.
 4. **fail2ban**: cai goi, ghi `/etc/fail2ban/jail.d/local.conf` (DEFAULT + `sshd` bat), `enable` + `restart fail2ban`.
-5. **Reboot**: sau 5 giay chay `systemctl reboot` (co the Ctrl+C truoc khi reboot).
+5. **Benchmark VPS**: chay YABS `bash <(curl -fsSL https://yabs.sh) -f` de test CPU/RAM/disk/network.
+6. **Kiem tra stream IP**: uu tien `bash <(curl -L -s media.ispvps.com)`, neu loi thi fallback RegionRestrictionCheck `bash <(curl -fsSL https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/check.sh)`.
 
 Chi chay tren **Debian** voi **VERSION_ID** 11 hoac 12; cac OS khac script se thoat.
 
 ### Luu y
 
 - File script can **ket thuc dong LF** khi chay tren Linux; neu sua tren Windows, doi CRLF -> LF (vd. `sed -i 's/\r$//' auto-init-server.sh` tren may Linux).
+- Script hien tai **KHONG tu reboot server** sau khi chay xong.
 
 ---
 
