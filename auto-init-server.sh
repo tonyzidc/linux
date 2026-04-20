@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# auto-init-server.sh — Debian 11/12: full upgrade, swap = RAM, Docker, fail2ban, benchmark + media check.
+# auto-init-server.sh — Debian 11/12 + Ubuntu 22/24: full upgrade, swap = RAM, Docker, fail2ban, benchmark + media check.
 # Usage: sudo ./auto-init-server.sh
 
 set -euo pipefail
@@ -17,15 +17,27 @@ fi
 # shellcheck source=/dev/null
 . /etc/os-release
 
-if [ "${ID:-}" != "debian" ]; then
-  echo "Script chi danh cho Debian (hien tai: ${ID:-unknown})." >&2
-  exit 1
-fi
-
-case "${VERSION_ID:-}" in
-  11|12) ;;
+case "${ID:-}" in
+  debian)
+    case "${VERSION_ID:-}" in
+      11|12) ;;
+      *)
+        echo "Ho tro Debian 11/12; phien ban hien tai: ${VERSION_ID:-unknown}." >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  ubuntu)
+    case "${VERSION_ID:-}" in
+      22.04|24.04) ;;
+      *)
+        echo "Ho tro Ubuntu 22.04/24.04; phien ban hien tai: ${VERSION_ID:-unknown}." >&2
+        exit 1
+        ;;
+    esac
+    ;;
   *)
-    echo "Ho tro Debian 11 va 12; phien ban hien tai: ${VERSION_ID:-unknown}." >&2
+    echo "Script chi ho tro Debian 11/12 hoac Ubuntu 22.04/24.04 (hien tai: ${ID:-unknown} ${VERSION_ID:-unknown})." >&2
     exit 1
     ;;
 esac
@@ -93,7 +105,7 @@ install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 chmod a+r /etc/apt/keyrings/docker.gpg
 
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
   > /etc/apt/sources.list.d/docker.list
 
 "${APT_FULL[@]}" update

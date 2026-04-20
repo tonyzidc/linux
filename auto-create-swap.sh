@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==========================================
-# Auto Swap Creator for Debian 12
+# Auto Swap Creator for Debian 11/12 and Ubuntu 22/24
 # - Detects total RAM
 # - Chooses a reasonable swap size
 # - Creates and enables swapfile
@@ -71,9 +71,33 @@ require_root() {
 check_os() {
   if [[ -f /etc/os-release ]]; then
     . /etc/os-release
-    if [[ "${ID:-}" != "debian" ]]; then
-      warn "This script was written for Debian. Current OS: ${PRETTY_NAME:-unknown}"
-    fi
+    case "${ID:-}" in
+      debian)
+        case "${VERSION_ID:-}" in
+          11|12) ;;
+          *)
+            err "Unsupported Debian version: ${VERSION_ID:-unknown}. Supported: 11, 12."
+            exit 1
+            ;;
+        esac
+        ;;
+      ubuntu)
+        case "${VERSION_ID:-}" in
+          22.04|24.04) ;;
+          *)
+            err "Unsupported Ubuntu version: ${VERSION_ID:-unknown}. Supported: 22.04, 24.04."
+            exit 1
+            ;;
+        esac
+        ;;
+      *)
+        err "Unsupported OS: ${PRETTY_NAME:-unknown}. Supported: Debian 11/12, Ubuntu 22.04/24.04."
+        exit 1
+        ;;
+    esac
+  else
+    err "Cannot read /etc/os-release."
+    exit 1
   fi
 }
 
