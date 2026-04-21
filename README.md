@@ -1,6 +1,6 @@
 # Linux Helpers (Debian/Ubuntu)
 
-This repository provides utility scripts for Debian/Ubuntu: server bootstrap (`auto-init-server.sh`) and swap setup (`auto-create-swap.sh`).
+This repository provides utility scripts for Debian/Ubuntu: server bootstrap (`auto-init-server.sh`) and swap (RAM-sized) plus fail2ban (`auto-create-swap.sh`).
 
 ---
 
@@ -47,7 +47,7 @@ Other OSes/versions are rejected by the script.
 
 ## 2) auto-create-swap.sh (Debian 11/12, Ubuntu 22.04/24.04)
 
-This script automatically creates and configures a swapfile based on RAM size, including `vm.swappiness` and `vm.vfs_cache_pressure` tuning.
+This script creates a **swapfile the same size as RAM** (1:1 from `MemTotal`), applies swap sysctl tuning, and **installs and enables fail2ban** if it is not already present.
 
 ### Quick run from GitHub (public)
 
@@ -76,13 +76,13 @@ sudo ./auto-create-swap.sh
 
 ### What the script does
 
-- Detects total RAM from `/proc/meminfo`.
-- Calculates recommended swap size.
-- Creates `/swapfile`, applies `chmod 600`, runs `mkswap` and `swapon`.
-- Persists swap entry in `/etc/fstab`.
-- Writes tuning values to `/etc/sysctl.d/99-swap-tuning.conf`:
-  - `vm.swappiness=10`
-  - `vm.vfs_cache_pressure=50`
+1. Detects total RAM from `/proc/meminfo` and sets swap size **equal to that RAM** (MB for MB).
+2. Creates `/swapfile` (`fallocate`, fallback `dd`), `chmod 600`, `mkswap`, `swapon`; if a swapfile already exists at that path, it is disabled and removed first when you confirm recreate (or with `--yes` / `--force`).
+3. Persists swap in `/etc/fstab`.
+4. Writes `/etc/sysctl.d/99-swap-tuning.conf`: `vm.swappiness=10`, `vm.vfs_cache_pressure=50`.
+5. **fail2ban**: if the package is missing, runs `apt-get update` and installs `fail2ban`; then `systemctl enable` and start/restart so the service is active. Does not ship a custom jail file (unlike `auto-init-server.sh`); use defaults or add your own under `/etc/fail2ban/jail.d/`.
+
+Large RAM means a large swapfile—ensure the filesystem that holds `/` (or `/swapfile`) has enough free space.
 
 ### Verify after running
 
@@ -90,4 +90,5 @@ sudo ./auto-create-swap.sh
 free -h
 swapon --show
 sysctl vm.swappiness vm.vfs_cache_pressure
+systemctl status fail2ban --no-pager
 ```

@@ -4,9 +4,10 @@ set -euo pipefail
 # ==========================================
 # Auto Swap Creator for Debian 11/12 and Ubuntu 22/24
 # - Detects total RAM
-# - Chooses a reasonable swap size
+# - Creates swapfile equal to RAM (1:1)
 # - Creates and enables swapfile
 # - Persists across reboot
+# - Ensures fail2ban is installed and running
 # ==========================================
 
 SWAPFILE="/swapfile"
@@ -105,38 +106,14 @@ get_total_ram_mb() {
   awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo
 }
 
-get_recommended_swap_mb() {
+# Kích thước swap = RAM (MB), tỷ lệ 1:1
+get_swap_mb_from_ram() {
   local ram_mb="$1"
-  local swap_mb=0
-
-  # Quy tắc thực tế, cân bằng giữa hiệu năng và tài nguyên:
-  # <= 2GB RAM   -> swap = 2x RAM
-  # <= 4GB RAM   -> swap = 1.5x RAM
-  # <= 8GB RAM   -> swap = 1x RAM
-  # <= 16GB RAM  -> swap = 0.5x RAM
-  # > 16GB RAM   -> swap = 4GB ~ 8GB tùy RAM
-  #
-  # Mục tiêu: đủ để chống OOM, không quá lãng phí disk.
-  if (( ram_mb <= 2048 )); then
-    swap_mb=$(( ram_mb * 2 ))
-  elif (( ram_mb <= 4096 )); then
-    swap_mb=$(( ram_mb * 3 / 2 ))
-  elif (( ram_mb <= 8192 )); then
-    swap_mb=$ram_mb
-  elif (( ram_mb <= 16384 )); then
-    swap_mb=$(( ram_mb / 2 ))
-  elif (( ram_mb <= 32768 )); then
-    swap_mb=4096
-  else
-    swap_mb=8192
+  if (( ram_mb < 1 )); then
+    err "Invalid RAM size from /proc/meminfo."
+    exit 1
   fi
-
-  # Sàn/tối thiểu
-  if (( swap_mb < 1024 )); then
-    swap_mb=1024
-  fi
-
-  echo "$swap_mb"
+  echo "$ram_mb"
 }
 
 swap_exists() {
@@ -199,6 +176,37 @@ set_sysctl_value() {
   sysctl -w "${key}=${value}" >/dev/null
 }
 
+ensure_fail2ban() {
+  export DEBIAN_FRONTEND=noninteractive
+
+  if dpkg -s fail2ban >/dev/null 2>&1; then
+    log "fail2ban đã được cài đặt."
+  else
+    log "Chưa có fail2ban — đang cài đặt..."
+    apt-get update -qq
+    apt-get install -y -qq fail2ban
+    log "Đã cài fail2ban."
+  fi
+
+  if systemctl enable fail2ban >/dev/null 2>&1; then
+    log "Đã bật fail2ban khởi động cùng hệ thống."
+  fi
+
+  if systemctl restart fail2ban >/dev/null 2>&1; then
+    log "Đã khởi động lại fail2ban."
+  elif systemctl start fail2ban >/dev/null 2>&1; then
+    log "Đã khởi động fail2ban."
+  else
+    warn "Không thể start/restart fail2ban (kiểm tra systemctl status fail2ban)."
+  fi
+
+  if systemctl is-active --quiet fail2ban; then
+    log "fail2ban đang chạy (active)."
+  else
+    warn "fail2ban không ở trạng thái active."
+  fi
+}
+
 show_result() {
   echo
   log "Swap setup completed."
@@ -210,6 +218,13 @@ show_result() {
   echo
   echo "========== SYSCTL =========="
   sysctl vm.swappiness vm.vfs_cache_pressure
+  echo
+  echo "========== FAIL2BAN =========="
+  if systemctl is-active --quiet fail2ban 2>/dev/null; then
+    systemctl --no-pager -l status fail2ban | head -n 8
+  else
+    warn "fail2ban không active (xem systemctl status fail2ban)."
+  fi
 }
 
 main() {
@@ -221,10 +236,10 @@ main() {
   local swap_mb
 
   ram_mb="$(get_total_ram_mb)"
-  swap_mb="$(get_recommended_swap_mb "$ram_mb")"
+  swap_mb="$(get_swap_mb_from_ram "$ram_mb")"
 
   log "Detected RAM: ${ram_mb}MB"
-  log "Recommended swap size: ${swap_mb}MB"
+  log "Swap size (bằng RAM): ${swap_mb}MB"
 
   if swap_exists; then
     warn "System already has active swap:"
@@ -238,7 +253,7 @@ main() {
         exit 1
       fi
 
-      read -r -p "Do you want to recreate swap using recommended size? [y/N]: " answer
+      read -r -p "Tạo lại swap bằng dung lượng RAM (1:1)? [y/N]: " answer
       if [[ ! "${answer,,}" =~ ^y(es)?$ ]]; then
         log "Aborted by user."
         exit 0
@@ -253,6 +268,9 @@ main() {
   log "Applying swap tuning..."
   set_sysctl_value "vm.swappiness" "$SWAPPINESS"
   set_sysctl_value "vm.vfs_cache_pressure" "$VFS_CACHE_PRESSURE"
+
+  log "Đang đảm bảo fail2ban..."
+  ensure_fail2ban
 
   show_result
 }
