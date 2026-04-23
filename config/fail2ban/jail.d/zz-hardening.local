@@ -1,0 +1,29 @@
+# Fail2ban hardening — deployed to /etc/fail2ban/jail.d/zz-hardening.local
+# Repo: https://github.com/tonyzidc/linux (see auto-init-server.sh)
+#
+# Merges with stock jail.conf / jail.d. Filename zz-* loads late so these
+# values override weaker defaults where the same keys exist.
+
+[DEFAULT]
+# First-offence ban window for jails that do not set their own bantime
+bantime  = 8h
+findtime = 10m
+maxretry = 5
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled  = true
+# aggressive = normal + ddos + extra auth-failure patterns (stronger SSH coverage)
+mode     = aggressive
+maxretry = 4
+bantime  = 12h
+
+[recidive]
+# Re-bans hosts that were already banned again within findtime (uses fail2ban’s own log)
+enabled   = true
+filter    = recidive
+logpath   = /var/log/fail2ban.log
+banaction = %(banaction_allports)s
+bantime   = 2w
+findtime  = 2d
+maxretry  = 3

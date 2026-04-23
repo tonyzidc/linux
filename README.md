@@ -24,12 +24,12 @@ sudo ./auto-init-server.sh
 ### What the script does
 
 1. **OS upgrade**: sets `DEBIAN_FRONTEND=noninteractive`, runs `apt-get full-upgrade`, `autoremove --purge`, and `clean`; keeps existing config when apt prompts (`--force-confdef` / `--force-confold`). Sets `NEEDRESTART_MODE=a` when `needrestart` is present.
-2. **Swap = RAM**: reads `MemTotal` from `/proc/meminfo`, creates `/swapfile` equal to RAM (`fallocate`, fallback `dd`), runs `mkswap` and `swapon`, and updates `/etc/fstab`; if `/swapfile` already exists, it disables old swap and recreates it.
-3. **Swap tuning**: writes `/etc/sysctl.d/99-swap-tuning.conf` with `vm.swappiness=10` and `vm.vfs_cache_pressure=50`.
-4. **Docker**: adds the official Docker repository based on detected OS, installs `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-buildx-plugin`, `docker-compose-plugin`, then enables and restarts Docker.
-5. **fail2ban**: installs package, writes `/etc/fail2ban/jail.d/local.conf` (enables `sshd` jail), then enables and restarts service.
-6. **VPS benchmark**: runs YABS via `bash <(curl -fsSL https://yabs.sh) -f` to test CPU/RAM/disk/network.
-7. **Streaming IP check**: first tries `bash <(curl -L -s media.ispvps.com)`; if it fails, falls back to RegionRestrictionCheck `bash <(curl -fsSL https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/check.sh)`.
+2. **Swap = RAM**: if `/swapfile` is already active, matches RAM size (within a small tolerance), and has a proper `/etc/fstab` entry, this step is **skipped**. Otherwise it recreates swap like before (`fallocate` / `dd`, `mkswap`, `swapon`, `fstab`).
+3. **Swap tuning**: always writes `/etc/sysctl.d/99-swap-tuning.conf` with `vm.swappiness=10` and `vm.vfs_cache_pressure=50` (even when swap was skipped).
+4. **Docker**: **skipped** when `docker-ce` is installed and `docker` service is active. Otherwise installs from the official Docker repo (`docker-ce`, CLI, `containerd.io`, buildx, compose plugin) and restarts Docker.
+5. **fail2ban**: **skipped** when the package is installed and the service is active. Otherwise installs the package, copies or downloads the hardened jail bundle to `/etc/fail2ban/jail.d/zz-hardening.local` (see [`config/fail2ban/jail.d/zz-hardening.local`](config/fail2ban/jail.d/zz-hardening.local): `sshd` in aggressive mode, stricter ban windows, **recidive** for repeat offenders). When you run via `curl | bash`, the script fetches that file from the same GitHub branch (override with env `FAIL2BAN_JAIL_CONFIG_URL` if needed), then enables and restarts fail2ban.
+6. **VPS benchmark**: prompts `y/N` before running YABS (`bash <(curl -fsSL https://yabs.sh) -f`). If stdin is not a terminal, the prompt uses **`/dev/tty`** when available (so `curl … | sudo bash` can still ask on your console); otherwise the benchmark is skipped.
+7. **Streaming IP check**: prompts `y/N` before the media checks (same TTY/`/dev/tty` behavior as step 6). If you confirm, it tries `bash <(curl -L -s media.ispvps.com)` first, then RegionRestrictionCheck on failure.
 
 ### Supported operating systems
 
